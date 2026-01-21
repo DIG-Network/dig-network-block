@@ -18,6 +18,7 @@
 
 #![allow(non_snake_case)]
 
+use crate::header::L2BlockHeader;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -113,30 +114,29 @@ pub fn COMPUTE_BODY_ROOT(data_root: &Hash32, emissions_root: &Hash32) -> Hash32 
 ///
 /// Instead of taking a header struct (to avoid module coupling), we accept individual fields.
 /// The field label is included literally to avoid positional ambiguity.
-pub fn COMPUTE_HEADER_ROOT(
-    version: u32,
-    network_id: &[u8; 32],
-    epoch: u64,
-    prev_block_root: &[u8; 32],
-    body_root: &[u8; 32],
-    data_count: u32,
-    emissions_count: u32,
-    proposer_pubkey: &[u8; 48],
-) -> Hash32 {
-    let v_bytes = version.to_le_bytes();
-    let e_bytes = epoch.to_le_bytes();
-    let dc_bytes = data_count.to_le_bytes();
-    let ec_bytes = emissions_count.to_le_bytes();
+pub fn COMPUTE_HEADER_ROOT(args: &L2BlockHeader) -> Hash32 {
+    let v_bytes = args.version.to_le_bytes();
+    let e_bytes = args.epoch.to_le_bytes();
+    let dc_bytes = args.data_count.to_le_bytes();
+    let ec_bytes = args.emissions_count.to_le_bytes();
 
     let leaves: [Hash32; 8] = [
         sha256_concat(&[HEADER_FIELD_DOMAIN, b"version", &v_bytes]),
-        sha256_concat(&[HEADER_FIELD_DOMAIN, b"network_id", network_id]),
+        sha256_concat(&[HEADER_FIELD_DOMAIN, b"network_id", &args.network_id]),
         sha256_concat(&[HEADER_FIELD_DOMAIN, b"epoch", &e_bytes]),
-        sha256_concat(&[HEADER_FIELD_DOMAIN, b"prev_block_root", prev_block_root]),
-        sha256_concat(&[HEADER_FIELD_DOMAIN, b"body_root", body_root]),
+        sha256_concat(&[
+            HEADER_FIELD_DOMAIN,
+            b"prev_block_root",
+            &args.prev_block_root,
+        ]),
+        sha256_concat(&[HEADER_FIELD_DOMAIN, b"body_root", &args.body_root]),
         sha256_concat(&[HEADER_FIELD_DOMAIN, b"data_count", &dc_bytes]),
         sha256_concat(&[HEADER_FIELD_DOMAIN, b"emissions_count", &ec_bytes]),
-        sha256_concat(&[HEADER_FIELD_DOMAIN, b"proposer_pubkey", proposer_pubkey]),
+        sha256_concat(&[
+            HEADER_FIELD_DOMAIN,
+            b"proposer_pubkey",
+            &args.proposer_pubkey,
+        ]),
     ];
     MERKLE_ROOT(&leaves)
 }
@@ -245,8 +245,28 @@ mod tests {
         let prev = [3u8; 32];
         let body = [4u8; 32];
         let proposer = [5u8; 48];
-        let r1 = COMPUTE_HEADER_ROOT(1, &network_id, 2, &prev, &body, 3, 4, &proposer);
-        let r2 = COMPUTE_HEADER_ROOT(1, &network_id, 2, &prev, &body, 4, 3, &proposer);
+        let r1_header = L2BlockHeader {
+            version: 1,
+            network_id,
+            epoch: 2,
+            prev_block_root: prev,
+            body_root: body,
+            data_count: 3,
+            emissions_count: 4,
+            proposer_pubkey: proposer,
+        };
+        let r2_header = L2BlockHeader {
+            version: 1,
+            network_id,
+            epoch: 2,
+            prev_block_root: prev,
+            body_root: body,
+            data_count: 4,
+            emissions_count: 3,
+            proposer_pubkey: proposer,
+        };
+        let r1 = COMPUTE_HEADER_ROOT(&r1_header);
+        let r2 = COMPUTE_HEADER_ROOT(&r2_header);
         assert_ne!(r1, r2);
     }
 

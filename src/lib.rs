@@ -14,7 +14,7 @@
 //! root again, print it, and assert that both roots are equal.
 //!
 //! ```rust
-//! use dig_network_block::block::DigL2Block;
+//! use dig_network_block::block::{DigL2Block, BuildL2BlockArgs};
 //! use dig_network_block::emission_config::ConsensusEmissionConfig;
 //!
 //! // 1) Create a DIG block
@@ -27,7 +27,7 @@
 //! let extra_emissions = vec![]; // none for this example
 //! let attesters: Vec<[u8; 48]> = vec![]; // no attesters
 //! let cfg = ConsensusEmissionConfig::new(12, 0); // zero attester share since there are no attesters
-//! let block = DigL2Block::build(
+//! let args = BuildL2BlockArgs {
 //!     version,
 //!     network_id,
 //!     epoch,
@@ -35,9 +35,11 @@
 //!     proposer_pubkey,
 //!     data,
 //!     extra_emissions,
-//!     &attesters,
-//!     &cfg,
-//! ).unwrap();
+//!     attester_pubkeys: &attesters,
+//!     cfg: &cfg,
+//! };
+//!
+//! let block = DigL2Block::build(&args).unwrap();
 //!
 //! // 2) Take its root hash and print it
 //! let root1 = block.calculate_root();
@@ -58,11 +60,10 @@
 //! assert_eq!(root1, root2);
 //! ```
 
-pub mod serde_hex;
+pub mod block;
+pub mod body;
 pub mod dig_l2_definition;
 pub mod emission;
-pub mod body;
-pub mod header;
-pub mod block;
 pub mod emission_config;
-
+pub mod header;
+pub mod serde_hex;

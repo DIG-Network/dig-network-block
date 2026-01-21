@@ -45,7 +45,10 @@ mod tests {
 
     #[test]
     fn emission_hash_matches_definition() {
-        let e = Emission { pubkey: [7u8; 48], weight: 42 };
+        let e = Emission {
+            pubkey: [7u8; 48],
+            weight: 42,
+        };
         let h1 = e.calculate_root();
         let h2 = definitions::COMPUTE_EMISSION_HASH(&e.pubkey, e.weight);
         assert_eq!(h1, h2);
@@ -53,7 +56,10 @@ mod tests {
 
     #[test]
     fn emission_json_round_trip() {
-        let e = Emission { pubkey: [0x11u8; 48], weight: 9 };
+        let e = Emission {
+            pubkey: [0x11u8; 48],
+            weight: 9,
+        };
         let s = serde_json::to_string(&e).unwrap();
         // Ensure pubkey serialized to string with 0x
         let v: serde_json::Value = serde_json::from_str(&s).unwrap();

@@ -12,6 +12,18 @@ use crate::{body::L2BlockBody, emission::Emission, header::L2BlockHeader};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub struct BuildL2BlockArgs<'ba> {
+    pub version: u32,
+    pub network_id: [u8; 32],
+    pub epoch: u64,
+    pub prev_block_root: [u8; 32],
+    pub proposer_pubkey: [u8; 48],
+    pub data: Vec<u8>,
+    pub extra_emissions: Vec<Emission>,
+    pub attester_pubkeys: &'ba [[u8; 48]],
+    pub cfg: &'ba crate::emission_config::ConsensusEmissionConfig,
+}
+
 /// Full L2 block containing a header and a body.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DigL2Block {
@@ -33,7 +45,7 @@ impl DigL2Block {
     /// - `data_count` and `emissions_count` match body lengths.
     /// - `header.body_root` equals `body.calculate_root()`.
     /// - If `expected_version` is provided, header version matches it.
-    pub fn new (
+    pub fn new(
         header: L2BlockHeader,
         body: L2BlockBody,
         expected_version: Option<u32>,
@@ -64,45 +76,42 @@ impl DigL2Block {
     /// - Appends any `extra_emissions` provided by the caller.
     /// - Assembles the body from `data` and all emissions, computes `body_root`.
     /// - Fills header counts and `body_root`, leaving other header fields as provided.
-    pub fn build(
-        version: u32,
-        network_id: [u8; 32],
-        epoch: u64,
-        prev_block_root: [u8; 32],
-        proposer_pubkey: [u8; 48],
-        data: Vec<u8>,
-        extra_emissions: Vec<Emission>,
-        attester_pubkeys: &[[u8; 48]],
-        cfg: &crate::emission_config::ConsensusEmissionConfig,
-    ) -> Result<Self, BlockError> {
+    pub fn build(args: &BuildL2BlockArgs<'_>) -> Result<Self, BlockError> {
         // Validate config with respect to the number of attesters
-        cfg.validate_for_attesters(attester_pubkeys.len())?;
+        args.cfg
+            .validate_for_attesters(args.attester_pubkeys.len())?;
 
         // Build consensus emissions tuples then convert to Emission
         let tuples = definitions::BUILD_CONSENSUS_EMISSIONS(
-            proposer_pubkey,
-            attester_pubkeys,
-            cfg.proposer_reward_share,
-            cfg.attester_reward_share,
+            args.proposer_pubkey,
+            args.attester_pubkeys,
+            args.cfg.proposer_reward_share,
+            args.cfg.attester_reward_share,
         )?;
         let mut emissions: Vec<Emission> = tuples
             .into_iter()
-            .map(|(pk, w)| Emission { pubkey: pk, weight: w })
+            .map(|(pk, w)| Emission {
+                pubkey: pk,
+                weight: w,
+            })
             .collect();
-        emissions.extend(extra_emissions.into_iter());
+        emissions.extend(args.extra_emissions.clone());
 
-        let body = L2BlockBody { data, emissions };
+        let body = L2BlockBody {
+            data: args.data.clone(),
+            emissions,
+        };
         let body_root = body.calculate_root();
 
         let header = L2BlockHeader {
-            version,
-            network_id,
-            epoch,
-            prev_block_root,
+            version: args.version,
+            network_id: args.network_id,
+            epoch: args.epoch,
+            prev_block_root: args.prev_block_root,
             body_root,
             data_count: body.data.len() as u32,
             emissions_count: body.emissions.len() as u32,
-            proposer_pubkey,
+            proposer_pubkey: args.proposer_pubkey,
         };
 
         Ok(DigL2Block { header, body })
@@ -122,7 +131,10 @@ pub enum BlockError {
 
     /// The header's `body_root` does not match the calculated body root.
     #[error("body_root mismatch: header {header_body_root:?} != calculated {calculated:?}")]
-    BodyRootMismatch { header_body_root: [u8; 32], calculated: [u8; 32] },
+    BodyRootMismatch {
+        header_body_root: [u8; 32],
+        calculated: [u8; 32],
+    },
 
     /// Propagate definition-level errors (e.g., invalid attester share policy).
     #[error(transparent)]
@@ -139,7 +151,13 @@ mod tests {
     use crate::emission::Emission;
 
     fn make_body() -> L2BlockBody {
-        L2BlockBody { data: vec![1, 2, 3], emissions: vec![Emission { pubkey: [5u8; 48], weight: 10 }] }
+        L2BlockBody {
+            data: vec![1, 2, 3],
+            emissions: vec![Emission {
+                pubkey: [5u8; 48],
+                weight: 10,
+            }],
+        }
     }
 
     fn make_header_for_body(body: &L2BlockBody) -> L2BlockHeader {
@@ -182,7 +200,7 @@ mod tests {
     #[test]
     fn new_rejects_body_root_mismatch() {
         let mut body = make_body();
-        let mut header = make_header_for_body(&body);
+        let header = make_header_for_body(&body);
         // change body so root no longer matches header
         body.data.push(4);
         let err = DigL2Block::new(header, body, Some(1)).unwrap_err();
@@ -195,25 +213,31 @@ mod tests {
     #[test]
     fn build_block_with_attesters_and_extras() {
         let data = vec![1u8, 2, 3, 4];
-        let extra = vec![Emission { pubkey: [0x33u8; 48], weight: 7 }];
+        let extra = vec![Emission {
+            pubkey: [0x33u8; 48],
+            weight: 7,
+        }];
         let attesters = vec![[0x11u8; 48], [0x22u8; 48], [0x44u8; 48]];
         let cfg = crate::emission_config::ConsensusEmissionConfig::new(12, 90);
-        let block = DigL2Block::build(
-            1,
-            [9u8; 32],
-            123,
-            [8u8; 32],
-            [7u8; 48],
+        let build_block_args = BuildL2BlockArgs {
+            version: 1,
+            network_id: [0xabu8; 32],
+            epoch: 7,
+            prev_block_root: [0u8; 32],
+            proposer_pubkey: [9u8; 48],
             data,
-            extra,
-            &attesters,
-            &cfg,
-        )
-        .unwrap();
+            extra_emissions: extra.clone(),
+            attester_pubkeys: &attesters,
+            cfg: &cfg,
+        };
+        let block = DigL2Block::build(&build_block_args).unwrap();
 
         // Counts should reflect body lengths
         assert_eq!(block.header.data_count as usize, block.body.data.len());
-        assert_eq!(block.header.emissions_count as usize, block.body.emissions.len());
+        assert_eq!(
+            block.header.emissions_count as usize,
+            block.body.emissions.len()
+        );
 
         // Roots should be consistent
         let expect_body_root = block.body.calculate_root();
@@ -228,36 +252,38 @@ mod tests {
     #[test]
     fn build_block_zero_attesters_policy() {
         let cfg = crate::emission_config::ConsensusEmissionConfig::new(12, 0);
-        let b = DigL2Block::build(
-            1,
-            [0u8; 32],
-            0,
-            [0u8; 32],
-            [1u8; 48],
-            vec![],
-            vec![],
-            &[],
-            &cfg,
-        )
-        .unwrap();
+        let bb_args = BuildL2BlockArgs {
+            version: 1,
+            network_id: [0xabu8; 32],
+            epoch: 7,
+            prev_block_root: [0u8; 32],
+            proposer_pubkey: [9u8; 48],
+            data: vec![],
+            extra_emissions: vec![],
+            attester_pubkeys: &[],
+            cfg: &cfg,
+        };
+        let b = DigL2Block::build(&bb_args).unwrap();
         assert_eq!(b.body.emissions.len(), 1); // proposer only
 
         // Now invalid: non-zero attester share but no attesters
         let cfg_bad = crate::emission_config::ConsensusEmissionConfig::new(12, 1);
-        let err = DigL2Block::build(
-            1,
-            [0u8; 32],
-            0,
-            [0u8; 32],
-            [1u8; 48],
-            vec![],
-            vec![],
-            &[],
-            &cfg_bad,
-        )
-        .unwrap_err();
+        let bb_e_args = BuildL2BlockArgs {
+            version: 1,
+            network_id: [0u8; 32],
+            epoch: 7,
+            prev_block_root: [0u8; 32],
+            proposer_pubkey: [1u8; 48],
+            data: vec![],
+            extra_emissions: vec![],
+            attester_pubkeys: &[],
+            cfg: &cfg_bad,
+        };
+        let err = DigL2Block::build(&bb_e_args).unwrap_err();
         match err {
-            BlockError::Config(crate::emission_config::EmissionConfigError::NonZeroAttesterShareWithNoAttesters) => {}
+            BlockError::Config(
+                crate::emission_config::EmissionConfigError::NonZeroAttesterShareWithNoAttesters,
+            ) => {}
             other => panic!("unexpected error: {other:?}"),
         }
     }

@@ -22,7 +22,10 @@ pub struct ConsensusEmissionConfig {
 impl ConsensusEmissionConfig {
     /// Create a new config.
     pub fn new(proposer_reward_share: u64, attester_reward_share: u64) -> Self {
-        Self { proposer_reward_share, attester_reward_share }
+        Self {
+            proposer_reward_share,
+            attester_reward_share,
+        }
     }
 
     /// Validate the config against a given number of attesters.

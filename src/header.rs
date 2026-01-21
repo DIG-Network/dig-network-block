@@ -36,16 +36,7 @@ pub struct L2BlockHeader {
 impl L2BlockHeader {
     /// Calculates the `HEADER_ROOT` using the spec function.
     pub fn calculate_root(&self) -> definitions::Hash32 {
-        definitions::COMPUTE_HEADER_ROOT(
-            self.version,
-            &self.network_id,
-            self.epoch,
-            &self.prev_block_root,
-            &self.body_root,
-            self.data_count,
-            self.emissions_count,
-            &self.proposer_pubkey,
-        )
+        definitions::COMPUTE_HEADER_ROOT(self)
     }
 
     /// Validates that the header version matches the expected consensus version.
@@ -60,7 +51,11 @@ impl L2BlockHeader {
     }
 
     /// Validates that `data_count` and `emissions_count` match the provided body lengths.
-    pub fn validate_counts(&self, data_len: usize, emissions_len: usize) -> Result<(), HeaderError> {
+    pub fn validate_counts(
+        &self,
+        data_len: usize,
+        emissions_len: usize,
+    ) -> Result<(), HeaderError> {
         if self.data_count as usize != data_len {
             return Err(HeaderError::CountMismatch {
                 field: "data_count",
@@ -88,7 +83,11 @@ pub enum HeaderError {
 
     /// A header item count did not match the body lengths.
     #[error("{field} mismatch: header has {expected}, body has {actual}")]
-    CountMismatch { field: &'static str, expected: usize, actual: usize },
+    CountMismatch {
+        field: &'static str,
+        expected: usize,
+        actual: usize,
+    },
 }
 
 #[cfg(test)]
@@ -110,7 +109,7 @@ mod tests {
 
     #[test]
     fn header_root_changes_when_field_changes() {
-        let mut h1 = sample_header();
+        let h1 = sample_header();
         let mut h2 = sample_header();
         assert_eq!(h1.calculate_root(), h2.calculate_root());
         h2.data_count = 3;
@@ -137,7 +136,11 @@ mod tests {
         assert!(h.validate_counts(2, 1).is_ok());
         let e = h.validate_counts(1, 1).unwrap_err();
         match e {
-            HeaderError::CountMismatch { field, expected, actual } => {
+            HeaderError::CountMismatch {
+                field,
+                expected,
+                actual,
+            } => {
                 assert_eq!(field, "data_count");
                 assert_eq!(expected, 2);
                 assert_eq!(actual, 1);

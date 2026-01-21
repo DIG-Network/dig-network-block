@@ -38,11 +38,8 @@ impl L2BlockBody {
     /// Computes the `EMISSIONS_ROOT` as the Merkle root of each emission's
     /// per-item hash, sorted by hash ascending for determinism.
     pub fn calculate_emissions_root(&self) -> definitions::Hash32 {
-        let mut leaves: Vec<definitions::Hash32> = self
-            .emissions
-            .iter()
-            .map(|e| e.calculate_root())
-            .collect();
+        let mut leaves: Vec<definitions::Hash32> =
+            self.emissions.iter().map(|e| e.calculate_root()).collect();
         leaves.sort_unstable();
         definitions::MERKLE_ROOT(&leaves)
     }
@@ -70,26 +67,56 @@ mod tests {
 
     #[test]
     fn data_root_does_not_depend_on_input_order() {
-        let b1 = L2BlockBody { data: vec![3, 1, 2], emissions: vec![] };
-        let b2 = L2BlockBody { data: vec![2, 3, 1], emissions: vec![] };
+        let b1 = L2BlockBody {
+            data: vec![3, 1, 2],
+            emissions: vec![],
+        };
+        let b2 = L2BlockBody {
+            data: vec![2, 3, 1],
+            emissions: vec![],
+        };
         assert_eq!(b1.calculate_data_root(), b2.calculate_data_root());
     }
 
     #[test]
     fn emissions_root_does_not_depend_on_input_order() {
-        let e1 = Emission { pubkey: [1u8; 48], weight: 5 };
-        let e2 = Emission { pubkey: [2u8; 48], weight: 5 };
-        let e3 = Emission { pubkey: [3u8; 48], weight: 6 };
-        let b1 = L2BlockBody { data: vec![], emissions: vec![e1.clone(), e2.clone(), e3.clone()] };
-        let b2 = L2BlockBody { data: vec![], emissions: vec![e3, e1, e2] };
+        let e1 = Emission {
+            pubkey: [1u8; 48],
+            weight: 5,
+        };
+        let e2 = Emission {
+            pubkey: [2u8; 48],
+            weight: 5,
+        };
+        let e3 = Emission {
+            pubkey: [3u8; 48],
+            weight: 6,
+        };
+        let b1 = L2BlockBody {
+            data: vec![],
+            emissions: vec![e1.clone(), e2.clone(), e3.clone()],
+        };
+        let b2 = L2BlockBody {
+            data: vec![],
+            emissions: vec![e3, e1, e2],
+        };
         assert_eq!(b1.calculate_emissions_root(), b2.calculate_emissions_root());
     }
 
     #[test]
     fn body_root_changes_when_subroots_change() {
-        let e = Emission { pubkey: [9u8; 48], weight: 1 };
-        let b1 = L2BlockBody { data: vec![1, 2], emissions: vec![e.clone()] };
-        let b2 = L2BlockBody { data: vec![1], emissions: vec![e] };
+        let e = Emission {
+            pubkey: [9u8; 48],
+            weight: 1,
+        };
+        let b1 = L2BlockBody {
+            data: vec![1, 2],
+            emissions: vec![e.clone()],
+        };
+        let b2 = L2BlockBody {
+            data: vec![1],
+            emissions: vec![e],
+        };
         assert_ne!(b1.calculate_root(), b2.calculate_root());
     }
 }

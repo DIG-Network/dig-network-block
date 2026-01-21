@@ -13,7 +13,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum HexSerdeError {
     /// Input string must begin with `0x` prefix.
-    #[error("missing 0x prefix")] 
+    #[error("missing 0x prefix")]
     MissingPrefix,
 
     /// Input contained non-hex characters or odd-length digits.
@@ -21,7 +21,7 @@ pub enum HexSerdeError {
     InvalidHex(String),
 
     /// For fixed-size arrays: decoded byte length did not match the expected size.
-    #[error("length mismatch: expected {expected} bytes, got {actual} bytes")] 
+    #[error("length mismatch: expected {expected} bytes, got {actual} bytes")]
     LengthMismatch { expected: usize, actual: usize },
 }
 
@@ -43,9 +43,9 @@ fn encode_lower_hex_prefixed(bytes: &[u8]) -> String {
 /// Serde helpers for `Vec<u8>` as 0x-hex.
 pub mod hex_vec {
     use super::*;
-    
+
     /// Serialize a `Vec<u8>` as an `"0x..."` lowercase hex string.
-    pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -60,8 +60,9 @@ pub mod hex_vec {
     {
         let s: String = String::deserialize(deserializer)?;
         let hex_part = strip_0x(&s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        let bytes = hex::decode(hex_part)
-            .map_err(|e| serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string()))?;
+        let bytes = hex::decode(hex_part).map_err(|e| {
+            serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string())
+        })?;
         Ok(bytes)
     }
 }
@@ -86,11 +87,16 @@ pub mod hex32 {
     {
         let s: String = String::deserialize(deserializer)?;
         let hex_part = strip_0x(&s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        let bytes = hex::decode(hex_part)
-            .map_err(|e| serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string()))?;
+        let bytes = hex::decode(hex_part).map_err(|e| {
+            serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string())
+        })?;
         if bytes.len() != 32 {
             return Err(serde::de::Error::custom(
-                HexSerdeError::LengthMismatch { expected: 32, actual: bytes.len() }.to_string(),
+                HexSerdeError::LengthMismatch {
+                    expected: 32,
+                    actual: bytes.len(),
+                }
+                .to_string(),
             ));
         }
         let mut arr = [0u8; 32];
@@ -119,11 +125,16 @@ pub mod hex48 {
     {
         let s: String = String::deserialize(deserializer)?;
         let hex_part = strip_0x(&s).map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        let bytes = hex::decode(hex_part)
-            .map_err(|e| serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string()))?;
+        let bytes = hex::decode(hex_part).map_err(|e| {
+            serde::de::Error::custom(HexSerdeError::InvalidHex(e.to_string()).to_string())
+        })?;
         if bytes.len() != 48 {
             return Err(serde::de::Error::custom(
-                HexSerdeError::LengthMismatch { expected: 48, actual: bytes.len() }.to_string(),
+                HexSerdeError::LengthMismatch {
+                    expected: 48,
+                    actual: bytes.len(),
+                }
+                .to_string(),
             ));
         }
         let mut arr = [0u8; 48];
@@ -134,7 +145,7 @@ pub mod hex48 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
