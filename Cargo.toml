@@ -2,6 +2,16 @@
 name = "dig-network-block"
 version = "0.1.0"
 edition = "2024"
+description = "Primitives for DIG L2 block structure: header/body types, roots, and consensus emissions."
+license = "MIT OR Apache-2.0"
+keywords = ["dig", "l2", "block", "crypto", "chia"]
+categories = ["cryptography", "data-structures"]
+documentation = "https://docs.rs/dig-network-block"
+repository = ""
+
+[lib]
+name = "dig_network_block"
+path = "src/lib.rs"
 
 [dependencies]
 

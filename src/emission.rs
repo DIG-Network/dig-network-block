@@ -5,7 +5,6 @@
 //! (leaf) using the CAPITALIZED spec functions from `dig_l2_definition`.
 
 use crate::dig_l2_definition as definitions;
-use crate::serde_hex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
