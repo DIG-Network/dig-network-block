@@ -1,0 +1,19 @@
+[package]
+name = "dig-network-block"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Errors
+thiserror = "1"
+
+# Hex encode/decode utilities
+hex = "0.4"
+
+# Hashing
+sha2 = "0.10"
