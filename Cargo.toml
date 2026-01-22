@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["dig", "l2", "block", "crypto", "chia"]
 categories = ["cryptography", "data-structures"]
 documentation = "https://docs.rs/dig-network-block"
-repository = ""
+repository = "https://github.com/DIG-Network/dig-network-block"
 
 [lib]
 name = "dig_network_block"
